@@ -1,0 +1,6 @@
+{
+  "name": "aemu postoffice",
+  "description": "Native Android port of the aemu_postoffice PPSSPP adhoc relay, integrated adhocctl server, ENet UDP transport, and HTTP status server.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
