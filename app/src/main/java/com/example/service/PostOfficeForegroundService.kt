@@ -1,5 +1,6 @@
 package com.example.service
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -26,43 +27,52 @@ class PostOfficeForegroundService : Service() {
         const val ACTION_START = "com.aemupostoffice.port.action.START"
         const val ACTION_STOP = "com.aemupostoffice.port.action.STOP"
         const val ACTION_RESTART = "com.aemupostoffice.port.action.RESTART"
-        const val ACTION_SET_WAKELOCK = "com.aemupostoffice.port.action.SET_WAKELOCK"
-        const val EXTRA_WAKELOCK_ENABLED = "extra_wakelock_enabled"
 
         private const val CHANNEL_ID = "aemu_postoffice_server_channel"
         private const val NOTIFICATION_ID = 27312
 
         fun startServer(context: Context) {
-            val intent = Intent(context, PostOfficeForegroundService::class.java).apply {
+            val appCtx = context.applicationContext
+            val intent = Intent(appCtx, PostOfficeForegroundService::class.java).apply {
                 action = ACTION_START
             }
-            ContextCompat.startForegroundService(context, intent)
+            try {
+                ContextCompat.startForegroundService(appCtx, intent)
+            } catch (e: Exception) {
+                PostOfficeCoordinator.reportServiceError("Unable to start foreground service: ${e.message}")
+            }
         }
 
         fun stopServer(context: Context) {
-            val intent = Intent(context, PostOfficeForegroundService::class.java).apply {
-                action = ACTION_STOP
+            val appCtx = context.applicationContext
+            val intent = Intent(appCtx, PostOfficeForegroundService::class.java)
+            val stopped = try {
+                appCtx.stopService(intent)
+            } catch (_: Exception) {
+                false
             }
-            context.startService(intent)
+            if (!stopped) {
+                Executors.newSingleThreadExecutor().execute {
+                    PostOfficeCoordinator.stop()
+                }
+            }
         }
 
         fun restartServer(context: Context) {
-            val intent = Intent(context, PostOfficeForegroundService::class.java).apply {
+            val appCtx = context.applicationContext
+            val intent = Intent(appCtx, PostOfficeForegroundService::class.java).apply {
                 action = ACTION_RESTART
             }
-            ContextCompat.startForegroundService(context, intent)
+            try {
+                ContextCompat.startForegroundService(appCtx, intent)
+            } catch (e: Exception) {
+                PostOfficeCoordinator.reportServiceError("Unable to restart foreground service: ${e.message}")
+            }
         }
 
         fun setWakeLockEnabled(context: Context, enabled: Boolean) {
             ConfigStorage.setWakeLockPreferred(context, enabled)
             PostOfficeCoordinator.updateWakeLockState(enabled)
-            if (PostOfficeCoordinator.state.value.status == ServerRunStatus.RUNNING) {
-                val intent = Intent(context, PostOfficeForegroundService::class.java).apply {
-                    action = ACTION_SET_WAKELOCK
-                    putExtra(EXTRA_WAKELOCK_ENABLED, enabled)
-                }
-                context.startService(intent)
-            }
         }
     }
 
@@ -78,10 +88,23 @@ class PostOfficeForegroundService : Service() {
                 updateNotification(runtimeState)
             }
         }
+        PostOfficeCoordinator.onWakeLockPreferenceChanged = { enabled ->
+            controlExecutor.execute {
+                if (PostOfficeCoordinator.state.value.status == ServerRunStatus.RUNNING) {
+                    applyWakeLockPreference(enabled)
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        val action = intent?.action
+        if (action == null) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
+        when (action) {
             ACTION_STOP -> {
                 controlExecutor.execute {
                     PostOfficeCoordinator.stop()
@@ -92,7 +115,10 @@ class PostOfficeForegroundService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_RESTART -> {
-                promoteToForeground(PostOfficeCoordinator.state.value)
+                if (!promoteToForegroundSafely(PostOfficeCoordinator.state.value)) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
                 controlExecutor.execute {
                     val ok = PostOfficeCoordinator.restart(this)
                     if (ok) {
@@ -104,15 +130,13 @@ class PostOfficeForegroundService : Service() {
                         stopSelf()
                     }
                 }
-                return START_STICKY
+                return START_NOT_STICKY
             }
-            ACTION_SET_WAKELOCK -> {
-                val enabled = intent.getBooleanExtra(EXTRA_WAKELOCK_ENABLED, ConfigStorage.isWakeLockPreferred(this))
-                applyWakeLockPreference(enabled)
-                return START_STICKY
-            }
-            else -> {
-                promoteToForeground(PostOfficeCoordinator.state.value)
+            ACTION_START -> {
+                if (!promoteToForegroundSafely(PostOfficeCoordinator.state.value)) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
                 controlExecutor.execute {
                     val ok = PostOfficeCoordinator.start(this)
                     if (ok) {
@@ -124,8 +148,33 @@ class PostOfficeForegroundService : Service() {
                         stopSelf()
                     }
                 }
-                return START_STICKY
+                return START_NOT_STICKY
             }
+            else -> {
+                stopSelf(startId)
+                return START_NOT_STICKY
+            }
+        }
+    }
+
+    override fun onTimeout(startId: Int) {
+        handleForegroundTimeout()
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        handleForegroundTimeout()
+    }
+
+    private fun handleForegroundTimeout() {
+        ServerLogger.warn(
+            LogCategory.SYSTEM,
+            "Service: Android foreground service time limit reached; stopping server cleanly"
+        )
+        controlExecutor.execute {
+            PostOfficeCoordinator.stop()
+            releaseLocks()
+            stopForegroundCompat()
+            stopSelf()
         }
     }
 
@@ -133,29 +182,48 @@ class PostOfficeForegroundService : Service() {
 
     override fun onDestroy() {
         PostOfficeCoordinator.onStatusNotificationUpdate = null
+        PostOfficeCoordinator.onWakeLockPreferenceChanged = null
         PostOfficeCoordinator.stop()
         releaseLocks()
+        stopForegroundCompat()
         controlExecutor.shutdownNow()
         super.onDestroy()
     }
 
-    private fun promoteToForeground(state: ServerRuntimeState) {
+    private fun promoteToForegroundSafely(state: ServerRuntimeState): Boolean {
         val notification = buildNotification(state)
         val fgType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         } else {
             0
         }
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, fgType)
+        return try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, fgType)
+            true
+        } catch (e: Exception) {
+            val reason = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException) {
+                "Foreground service start blocked by Android background restrictions"
+            } else {
+                "Foreground service failed to start: ${e.message}"
+            }
+            PostOfficeCoordinator.reportServiceError(reason)
+            false
+        }
     }
 
     private fun stopForegroundCompat() {
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        try {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {
+        }
     }
 
     private fun updateNotification(state: ServerRuntimeState) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        manager.notify(NOTIFICATION_ID, buildNotification(state))
+        try {
+            manager.notify(NOTIFICATION_ID, buildNotification(state))
+        } catch (_: Exception) {
+        }
     }
 
     private fun buildNotification(state: ServerRuntimeState): Notification {
@@ -174,10 +242,10 @@ class PostOfficeForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or immutableFlag
         )
 
-        val stopIntent = Intent(this, PostOfficeForegroundService::class.java).apply {
+        val stopIntent = Intent(this, PostOfficeStopReceiver::class.java).apply {
             action = ACTION_STOP
         }
-        val stopPending = PendingIntent.getService(
+        val stopPending = PendingIntent.getBroadcast(
             this,
             1,
             stopIntent,

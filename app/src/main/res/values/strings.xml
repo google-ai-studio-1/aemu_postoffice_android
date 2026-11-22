@@ -32,6 +32,9 @@
     <string name="label_ptp_sessions">PTP</string>
     <string name="label_wakelock_title">Keep Awake and Wi-Fi Lock</string>
     <string name="label_wakelock_desc">Prevents Android Doze and Wi-Fi sleep while hosting PPSSPP multiplayer in the background.</string>
+    <string name="label_battery_opt_title">Ignore Battery Optimizations</string>
+    <string name="label_battery_opt_enabled">Battery optimization is disabled for this app so the server stays alive in the background.</string>
+    <string name="label_battery_opt_disabled">Allow unrestricted background battery usage to prevent Android from stopping the server.</string>
     <string name="label_transports">Active Services</string>
     <string name="label_relay_service">Relay</string>
     <string name="label_adhocctl_service">Adhocctl</string>
@@ -95,4 +98,5 @@
     <string name="cd_warning">Restart required warning</string>
     <string name="cd_game_room">PSP game lobby icon</string>
     <string name="cd_lan_address">Local network address icon</string>
+    <string name="cd_battery_opt">Battery optimization icon</string>
 </resources>

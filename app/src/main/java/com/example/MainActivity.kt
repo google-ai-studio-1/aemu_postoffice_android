@@ -1,9 +1,12 @@
 package com.example
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -31,6 +34,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -41,6 +45,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.AppDestination
@@ -108,12 +115,14 @@ private fun PostOfficeApp(
     viewModel: PostOfficeViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val runtimeState by viewModel.runtimeState.collectAsStateWithLifecycle()
     val destination by viewModel.selectedDestination.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val logs by viewModel.logEntries.collectAsStateWithLifecycle()
     val logFilter by viewModel.logFilter.collectAsStateWithLifecycle()
     val gplText by viewModel.gplLicenseText.collectAsStateWithLifecycle()
+    val ignoringBatteryOptimizations by viewModel.ignoringBatteryOptimizations.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -121,6 +130,12 @@ private fun PostOfficeApp(
         contract = ActivityResultContracts.RequestPermission()
     ) {
         viewModel.startServer()
+    }
+
+    val batteryOptLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.refreshBatteryOptimizationStatus()
     }
 
     val importConfigLauncher = rememberLauncherForActivityResult(
@@ -153,8 +168,22 @@ private fun PostOfficeApp(
         if (uri != null) viewModel.exportLogsToUri(uri)
     }
 
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshBatteryOptimizationStatus()
+                viewModel.refreshLocalAddresses()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.refreshLocalAddresses()
+        viewModel.refreshBatteryOptimizationStatus()
         viewModel.snackbarMessages.collect { msg ->
             snackbarHostState.showSnackbar(msg)
         }
@@ -162,6 +191,27 @@ private fun PostOfficeApp(
 
     BackHandler(enabled = destination != AppDestination.DASHBOARD) {
         viewModel.selectDestination(AppDestination.DASHBOARD)
+    }
+
+    val onBatteryOptimizationToggle: (Boolean) -> Unit = { desiredIgnore ->
+        val packageUri = Uri.parse("package:${context.packageName}")
+        val primaryIntent = if (desiredIgnore) {
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri)
+        } else {
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        }
+        try {
+            batteryOptLauncher.launch(primaryIntent)
+        } catch (_: Exception) {
+            try {
+                batteryOptLauncher.launch(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            } catch (_: Exception) {
+                try {
+                    batteryOptLauncher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri))
+                } catch (_: Exception) {
+                }
+            }
+        }
     }
 
     val onStartRequest = {
@@ -255,10 +305,12 @@ private fun PostOfficeApp(
                     when (destination) {
                         AppDestination.DASHBOARD -> DashboardScreen(
                             state = runtimeState,
+                            isIgnoringBatteryOptimizations = ignoringBatteryOptimizations,
                             onStart = onStartRequest,
                             onStop = viewModel::stopServer,
                             onRestart = viewModel::restartServer,
                             onWakeLockToggle = viewModel::setWakeLockEnabled,
+                            onBatteryOptimizationToggle = onBatteryOptimizationToggle,
                             onCopied = viewModel::notifyCopied
                         )
                         AppDestination.ROOMS -> RoomsSessionsScreen(state = runtimeState)

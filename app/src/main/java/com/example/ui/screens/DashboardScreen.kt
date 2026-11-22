@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,7 +43,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -55,14 +55,15 @@ import com.example.ui.theme.StatusOnlineGreenDark
 import com.example.ui.theme.StatusOnlineGreenLight
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardScreen(
     state: ServerRuntimeState,
+    isIgnoringBatteryOptimizations: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onRestart: () -> Unit,
     onWakeLockToggle: (Boolean) -> Unit,
+    onBatteryOptimizationToggle: (Boolean) -> Unit,
     onCopied: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -147,6 +148,13 @@ fun DashboardScreen(
             }
 
             item {
+                BatteryOptimizationCard(
+                    isIgnoring = isIgnoringBatteryOptimizations,
+                    onToggle = onBatteryOptimizationToggle
+                )
+            }
+
+            item {
                 ActiveServicesCard(state = state, onlineColor = onlineGreen)
             }
 
@@ -157,6 +165,7 @@ fun DashboardScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ServerStatusHeroCard(
     state: ServerRuntimeState,
@@ -195,15 +204,18 @@ private fun ServerStatusHeroCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -223,9 +235,7 @@ private fun ServerStatusHeroCard(
                     Text(
                         text = state.activeConfig.metadataName,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -234,7 +244,7 @@ private fun ServerStatusHeroCard(
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
@@ -267,16 +277,17 @@ private fun ServerStatusHeroCard(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (isRunning) {
+            if (isRunning) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Button(
                         onClick = onStop,
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("stop_server_button"),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
@@ -296,36 +307,36 @@ private fun ServerStatusHeroCard(
                     OutlinedButton(
                         onClick = onRestart,
                         modifier = Modifier
-                            .height(48.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("restart_server_button"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(text = stringResource(R.string.action_restart_server))
                     }
-                } else {
-                    Button(
-                        onClick = onStart,
-                        enabled = !isStarting,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("start_server_button"),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_power_start),
-                            contentDescription = stringResource(R.string.cd_power_toggle),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isStarting) {
-                                stringResource(R.string.status_starting)
-                            } else {
-                                stringResource(R.string.action_start_server)
-                            }
-                        )
-                    }
+                }
+            } else {
+                Button(
+                    onClick = onStart,
+                    enabled = !isStarting,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("start_server_button"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_power_start),
+                        contentDescription = stringResource(R.string.cd_power_toggle),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isStarting) {
+                            stringResource(R.string.status_starting)
+                        } else {
+                            stringResource(R.string.action_start_server)
+                        }
+                    )
                 }
             }
         }
@@ -374,7 +385,7 @@ private fun RestartRequiredBanner(
             OutlinedButton(
                 onClick = onRestart,
                 modifier = Modifier
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("banner_restart_button"),
                 shape = RoundedCornerShape(10.dp)
             ) {
@@ -462,9 +473,7 @@ private fun MetricTile(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -488,9 +497,9 @@ private fun AddressEndpointsCard(
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            EndpointRow(
+            EndpointBlock(
                 iconRes = R.drawable.ic_wifi_lan,
                 iconCd = stringResource(R.string.cd_lan_address),
                 label = stringResource(R.string.label_local_address),
@@ -507,7 +516,7 @@ private fun AddressEndpointsCard(
                         .height(1.dp)
                         .background(MaterialTheme.colorScheme.outlineVariant)
                 )
-                EndpointRow(
+                EndpointBlock(
                     iconRes = R.drawable.ic_http_web,
                     iconCd = stringResource(R.string.cd_http_status),
                     label = stringResource(R.string.label_http_status),
@@ -530,7 +539,7 @@ private fun AddressEndpointsCard(
 }
 
 @Composable
-private fun EndpointRow(
+private fun EndpointBlock(
     iconRes: Int,
     iconCd: String,
     label: String,
@@ -539,58 +548,71 @@ private fun EndpointRow(
     copyTag: String,
     onCopy: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = iconCd,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier
-                    .padding(10.dp)
-                    .size(20.dp)
-            )
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = iconCd,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(18.dp)
+                )
+            }
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = MonoCodeStyle.copy(fontSize = 14.sp),
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                modifier = Modifier.weight(1f)
             )
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            IconButton(
+                onClick = onCopy,
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag(copyTag)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_copy),
+                    contentDescription = stringResource(R.string.cd_copy_address),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
-        IconButton(
-            onClick = onCopy,
-            modifier = Modifier
-                .size(48.dp)
-                .testTag(copyTag)
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_copy),
-                contentDescription = stringResource(R.string.cd_copy_address),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = value,
+                    style = MonoCodeStyle.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -645,6 +667,73 @@ private fun WakeLockCard(
                 checked = enabled,
                 onCheckedChange = onToggle,
                 modifier = Modifier.testTag("wakelock_switch")
+            )
+        }
+    }
+}
+
+@Composable
+private fun BatteryOptimizationCard(
+    isIgnoring: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (isIgnoring) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.tertiaryContainer
+                }
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_battery_unrestricted),
+                    contentDescription = stringResource(R.string.cd_battery_opt),
+                    tint = if (isIgnoring) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    },
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(20.dp)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.label_battery_opt_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (isIgnoring) {
+                        stringResource(R.string.label_battery_opt_enabled)
+                    } else {
+                        stringResource(R.string.label_battery_opt_disabled)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = isIgnoring,
+                onCheckedChange = onToggle,
+                modifier = Modifier.testTag("battery_optimization_switch")
             )
         }
     }

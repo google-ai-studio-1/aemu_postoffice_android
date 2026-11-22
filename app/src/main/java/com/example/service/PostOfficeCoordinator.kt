@@ -82,6 +82,9 @@ object PostOfficeCoordinator {
     @Volatile
     var onStatusNotificationUpdate: ((ServerRuntimeState) -> Unit)? = null
 
+    @Volatile
+    var onWakeLockPreferenceChanged: ((Boolean) -> Unit)? = null
+
     fun refreshStaticState(context: Context) {
         val ctx = context.applicationContext
         appContext = ctx
@@ -110,6 +113,17 @@ object PostOfficeCoordinator {
 
     fun updateWakeLockState(enabled: Boolean) {
         _state.value = _state.value.copy(wakeLockEnabled = enabled)
+        onWakeLockPreferenceChanged?.invoke(enabled)
+    }
+
+    fun reportServiceError(message: String) {
+        ServerLogger.error(LogCategory.SYSTEM, message)
+        _state.value = _state.value.copy(
+            status = ServerRunStatus.ERROR,
+            uptimeSeconds = 0L,
+            httpRunning = false,
+            errorMessage = message
+        )
     }
 
     fun start(context: Context): Boolean = lifecycleLock.withLock {

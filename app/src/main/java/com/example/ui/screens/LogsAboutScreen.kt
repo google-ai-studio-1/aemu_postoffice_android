@@ -94,85 +94,95 @@ fun LogsAboutScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            OutlinedTextField(
+                value = filter.searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = { Text(stringResource(R.string.search_logs_hint)) },
+                leadingIcon = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_search),
+                        contentDescription = stringResource(R.string.cd_search),
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("logs_search_input")
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                OutlinedTextField(
-                    value = filter.searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    placeholder = { Text(stringResource(R.string.search_logs_hint)) },
-                    leadingIcon = {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_search),
-                            contentDescription = stringResource(R.string.cd_search),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("logs_search_input")
+                Text(
+                    text = "${filteredLogs.size} / ${logs.size} entries",
+                    style = MonoCodeStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
-                IconButton(
-                    onClick = onToggleAutoScroll,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("logs_autoscroll_button")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(
-                            if (filter.autoScroll) R.drawable.ic_pause_scroll else R.drawable.ic_play_scroll
-                        ),
-                        contentDescription = stringResource(R.string.cd_toggle_scroll),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    IconButton(
+                        onClick = onToggleAutoScroll,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("logs_autoscroll_button")
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (filter.autoScroll) R.drawable.ic_pause_scroll else R.drawable.ic_play_scroll
+                            ),
+                            contentDescription = stringResource(R.string.cd_toggle_scroll),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                IconButton(
-                    onClick = onExportLogs,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("logs_export_button")
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_export_file),
-                        contentDescription = stringResource(R.string.cd_export_json),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    IconButton(
+                        onClick = onExportLogs,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("logs_export_button")
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_export_file),
+                            contentDescription = stringResource(R.string.cd_export_json),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                IconButton(
-                    onClick = onClearLogs,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("logs_clear_button")
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_clear_logs),
-                        contentDescription = stringResource(R.string.cd_clear_logs),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    IconButton(
+                        onClick = onClearLogs,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("logs_clear_button")
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_clear_logs),
+                            contentDescription = stringResource(R.string.cd_clear_logs),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                IconButton(
-                    onClick = { showAboutDialog = true },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("about_dialog_button")
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_info_license),
-                        contentDescription = stringResource(R.string.cd_about_info),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    IconButton(
+                        onClick = { showAboutDialog = true },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("about_dialog_button")
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_info_license),
+                            contentDescription = stringResource(R.string.cd_about_info),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 

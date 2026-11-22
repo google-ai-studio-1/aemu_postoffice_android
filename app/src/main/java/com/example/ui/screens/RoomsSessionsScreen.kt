@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.core.adhocctl.AdhocctlSnapshotGame
@@ -76,8 +75,7 @@ fun RoomsSessionsScreen(
                 ) {
                     Text(
                         text = "${stringResource(R.string.tab_adhocctl_lobby)} (${state.adhocctlSnapshot.clients.size})",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        textAlign = TextAlign.Center
                     )
                 }
                 SegmentedButton(
@@ -88,8 +86,7 @@ fun RoomsSessionsScreen(
                 ) {
                     Text(
                         text = "${stringResource(R.string.tab_relay_sessions)} (${state.relaySnapshot.sessions.size})",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -311,6 +308,7 @@ private fun RelaySessionsList(state: ServerRuntimeState) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RelaySessionCard(info: RelaySessionInfo) {
     val modeColor = when (info.mode) {
@@ -330,43 +328,44 @@ private fun RelaySessionCard(info: RelaySessionInfo) {
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = modeColor.copy(alpha = 0.16f)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = modeColor.copy(alpha = 0.16f)
-                    ) {
-                        Text(
-                            text = info.mode.name,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = modeColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            text = info.transport,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                    Text(
+                        text = info.mode.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = modeColor,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
-                Text(
-                    text = info.phase.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Text(
+                        text = info.transport,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Text(
+                        text = info.phase.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             Text(
@@ -380,9 +379,10 @@ private fun RelaySessionCard(info: RelaySessionInfo) {
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = "${info.clientAddr}:${info.clientPort}",

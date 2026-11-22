@@ -1,7 +1,9 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
+import android.os.PowerManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.adhocctl.GameDb
@@ -66,16 +68,31 @@ class PostOfficeViewModel(application: Application) : AndroidViewModel(applicati
     private val _gplLicenseText = MutableStateFlow("")
     val gplLicenseText: StateFlow<String> = _gplLicenseText.asStateFlow()
 
+    private val _ignoringBatteryOptimizations = MutableStateFlow(false)
+    val ignoringBatteryOptimizations: StateFlow<Boolean> = _ignoringBatteryOptimizations.asStateFlow()
+
     private val _snackbarMessages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()
 
     init {
         val ctx = getApplication<Application>()
         PostOfficeCoordinator.refreshStaticState(ctx)
+        refreshBatteryOptimizationStatus()
         loadEditorFromDisk()
         viewModelScope.launch(Dispatchers.IO) {
             _gplLicenseText.value = ConfigStorage.readGplLicenseText(ctx)
         }
+    }
+
+    fun refreshBatteryOptimizationStatus() {
+        val ctx = getApplication<Application>()
+        val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val ignoring = try {
+            pm?.isIgnoringBatteryOptimizations(ctx.packageName) == true
+        } catch (_: Exception) {
+            false
+        }
+        _ignoringBatteryOptimizations.value = ignoring
     }
 
     fun selectDestination(destination: AppDestination) {
